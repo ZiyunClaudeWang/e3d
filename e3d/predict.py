@@ -103,6 +103,11 @@ def get_args():
     parser.add_argument(
         "--gpu", dest="gpu_num", default="0", type=str, help="GPU Device Number",
     )
+
+    parser.add_argument(
+        "--visdom_port", default=20, type=int, help="Visdom port Number",
+    )
+
     parser.add_argument(
         '--model_cpt',
         dest='model_cpt',
@@ -247,6 +252,12 @@ def pred_evimo(unet: UNetDynamic, params: Params, device: str):
         mask_preds, mask_gts, ev_frames, mask_probs = [], [], [], []
         R, T = [], []
         test_loader = DataLoader(dataset, batch_size=params.unet_batch_size, num_workers=8, shuffle=False)
+
+        # bulild visualizer
+        from visdom import Visdom
+        from torchvision.utils import make_grid
+        v = Visdom(server="http://158.130.55.149", port=params.visdom_port)
+
         for count, (ev_frame, mask_gt, R_gt, T_gt) in enumerate(test_loader):
             R.append(R_gt)
             T.append(T_gt)
@@ -256,6 +267,11 @@ def pred_evimo(unet: UNetDynamic, params: Params, device: str):
                 mask_pred = unet(ev_frame)
             prob = torch.sigmoid(mask_pred).squeeze()
             mask_pred = prob > params.threshold_conf
+
+            images = make_grid(mask_pred.unsqueeze(1), nrow=4)
+            v.image(images.float(), win="mask")
+
+            import pdb; pdb.set_trace()
             mask_preds.append(mask_pred.float())
             mask_gts.append(mask_gt)
             mask_probs.append(prob)
@@ -767,6 +783,9 @@ if __name__ == "__main__":
     params.__post_init__()
     params._set_with_dict(args_dict)
     params.ransac_iou_threshold = args_dict['ransac_iou_threshold']
+    params.visdom_port = args_dict['visdom_port']
+    params.model_cpt = args_dict['segpose_model_cpt']
+    import pdb; pdb.set_trace()
 
     # Set the device
     dev_num = params.gpu_num

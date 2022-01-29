@@ -13,7 +13,6 @@ class ParamsBase:
                 for key, value in dict_in.items():
                     if key in self.__annotations__:
                         setattr(self, key, value)
-
     def _set_with_dict(self, dict_in: dict):
         for key, value in dict_in.items():
             if key in self.__annotations__:

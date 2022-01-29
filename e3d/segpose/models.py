@@ -48,6 +48,7 @@ class UNet(nn.Module):
         """Method for loading the UNet either from a dict or from params
         """
         net = cls(params.n_channels, params.n_classes, params.bilinear)
+        import pdb; pdb.set_trace()
         if params.model_cpt:
             checkpoint = torch.load(params.model_cpt, map_location=params.device)
             net.load_state_dict(checkpoint["model"])
@@ -225,19 +226,19 @@ class SegPoseNet(nn.Module):
     Joint UNet and pose estimation wrapper
     """
 
-    def __init__(self, unet: nn.Module, params):
+    def __init__(self, unet: nn.Module, device, droprate, feat_dim):
         super(SegPoseNet, self).__init__()
 
-        self.device = params.device
-        self.droprate = params.droprate
+        self.device = device
+        self.droprate = droprate
 
         self.unet = unet
 
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Linear(self.unet.encoder_out_channel, params.feat_dim)
+        self.fc = nn.Linear(self.unet.encoder_out_channel, feat_dim)
 
-        self.fc_xyz = nn.Linear(params.feat_dim, 3)
-        self.fc_wpqr = nn.Linear(params.feat_dim, 4)
+        self.fc_xyz = nn.Linear(feat_dim, 3)
+        self.fc_wpqr = nn.Linear(feat_dim, 4)
 
         init = [self.fc, self.fc_xyz, self.fc_wpqr]
         for m in init:
@@ -268,33 +269,6 @@ class SegPoseNet(nn.Module):
         poses = poses.view(s[0], s[1], -1)
 
         return mask_pred, poses
-
-    # def parameters(self):
-    #     """Generator that returns parameters only for pose model
-    #     """
-    #     for name, param in self.named_parameters(recurse=True):
-    #         if name.split(".")[0] == "unet":
-    #             continue
-    #         yield param
-
-    @classmethod
-    def load(cls, unet: nn.Module, params):
-        """Method for loading the UNet either from a dict or from params
-        """
-        net = cls(unet, params)
-        if params.segpose_model_cpt:
-            checkpoint = torch.load(
-                params.segpose_model_cpt, map_location=params.device
-            )
-            try:
-                net.load_state_dict(checkpoint["model"])
-            except RuntimeError:
-                del checkpoint["model"]["fc_wpqr.weight"]
-                del checkpoint["model"]["fc_wpqr.bias"]
-                net.load_state_dict(checkpoint["model"], strict=False)
-        net.to(device=params.device)
-
-        return net
 
 
 def weights_init(m):
